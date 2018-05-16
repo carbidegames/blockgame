@@ -4,13 +4,14 @@ extern crate udpcon;
 use {
     std::{thread, time::{Duration}},
     slog::{Logger},
-    udpcon::{Server},
+    udpcon::{Peer, PeerMode},
 };
 
 pub fn run(log: &Logger) {
     info!(log, "Starting Server");
 
-    let server = Server::start("0.0.0.0:25566".parse().unwrap());
+    let address = "0.0.0.0:25566".parse().unwrap();
+    let server = Peer::start(PeerMode::Server { address });
 
     loop {
         while let Some(data) = server.try_recv() {
