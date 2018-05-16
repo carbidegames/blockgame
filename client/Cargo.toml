@@ -1,5 +1,5 @@
 [package]
-name = "blockgame"
+name = "blockgame-client"
 version = "0.1.0"
 authors = ["Layl <LaylConway@users.noreply.github.com>"]
 
@@ -8,6 +8,6 @@ ggez = "0.4"
 nalgebra = { version = "0.14", features = ["serde-serialize"] }
 slog = "2"
 noise = "0.5"
-lagato = { path = "../common/lagato" }
-lagato-ggez = { path = "../common/lagato-ggez" }
-blockengine = { path = "../common/blockengine" }
+lagato = { path = "../../common/lagato" }
+lagato-ggez = { path = "../../common/lagato-ggez" }
+blockengine = { path = "../../common/blockengine" }

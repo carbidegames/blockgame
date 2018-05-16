@@ -12,12 +12,12 @@ use {
         timer, mouse,
         Context, GameResult,
     },
-    nalgebra::{Point3, Vector3, UnitQuaternion},
+    nalgebra::{Point3, Vector3},
     slog::{Logger},
     noise::{NoiseFn, HybridMulti},
 
     lagato::{camera::{PitchYawCamera}, grid::{Voxels}},
-    blockengine::{rendering::{Renderer, RenderCamera}},
+    blockengine::{rendering::{Renderer}},
 };
 
 pub fn main() -> GameResult<()> {
@@ -91,9 +91,8 @@ impl EventHandler for MainState {
     }
 
     fn draw(&mut self, ctx: &mut Context) -> GameResult<()> {
-        let render_camera = RenderCamera::new(
-            self.player_position + Vector3::new(0.0, 1.5, 0.0),
-            UnitQuaternion::from_euler_angles(self.camera.pitch, self.camera.yaw, 0.0),
+        let render_camera = self.camera.to_render_camera(
+            self.player_position + Vector3::new(0.0, 1.5, 0.0)
         );
 
         self.renderer.draw(ctx, &render_camera)?;
