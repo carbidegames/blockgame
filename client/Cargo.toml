@@ -12,3 +12,4 @@ udpcon = { path = "../../common/udpcon" }
 lagato = { path = "../../common/lagato" }
 lagato-ggez = { path = "../../common/lagato-ggez" }
 blockengine = { path = "../../common/blockengine" }
+blockgame-server = { path = "../server" }

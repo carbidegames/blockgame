@@ -6,6 +6,7 @@ extern crate udpcon;
 extern crate lagato;
 extern crate lagato_ggez;
 extern crate blockengine;
+extern crate blockgame_server;
 
 use {
     ggez::{
@@ -70,8 +71,9 @@ impl MainState {
         let camera = PitchYawCamera::new(0.0, 0.0);
 
         let server = "127.0.0.1:25566".parse().unwrap();
-        let client = Peer::start(PeerMode::Client { server });
-        client.send(server, [0, 1, 2, 3]);
+        let client = Peer::start(PeerMode::Client { server }, blockgame_server::PROTOCOL);
+        client.send(server, [0, 1, 2, 3].to_vec());
+        client.send(server, [3, 0, 1, 2].to_vec());
 
         Ok(MainState {
             log,
