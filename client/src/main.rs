@@ -2,12 +2,10 @@ extern crate ggez;
 extern crate nalgebra;
 #[macro_use] extern crate slog;
 extern crate noise;
-extern crate mio;
+extern crate udpcon;
 extern crate lagato;
 extern crate lagato_ggez;
 extern crate blockengine;
-
-mod networking;
 
 use {
     ggez::{
@@ -19,6 +17,7 @@ use {
     slog::{Logger},
     noise::{NoiseFn, HybridMulti},
 
+    udpcon::{Client},
     lagato::{camera::{PitchYawCamera}, grid::{Voxels}},
     blockengine::{rendering::{Renderer}},
 };
@@ -70,7 +69,7 @@ impl MainState {
         let player_position = Point3::new(0.0, 40.0, 0.0);
         let camera = PitchYawCamera::new(0.0, 0.0);
 
-        networking::send_msg();
+        let client = Client::connect("127.0.0.1:25566".parse().unwrap());
 
         Ok(MainState {
             log,

@@ -6,4 +6,4 @@ authors = ["Layl <LaylConway@users.noreply.github.com>"]
 [dependencies]
 slog = "2"
 sloggers = "0.2"
-mio = "0.6"
+udpcon = { path = "../../common/udpcon" }
