@@ -10,11 +10,11 @@ extern crate blockgame_server;
 
 use {
     ggez::{
-        event::{EventHandler, MouseButton, MouseState},
+        event::{EventHandler, Keycode, Mod, MouseState},
         timer, mouse,
         Context, GameResult,
     },
-    nalgebra::{Point3, Vector3},
+    nalgebra::{Point3, Vector3, Vector2},
     slog::{Logger},
     noise::{NoiseFn, HybridMulti},
 
@@ -33,6 +33,7 @@ pub fn main() -> GameResult<()> {
 struct MainState {
     log: Logger,
     renderer: Renderer,
+    input: InputState,
 
     world: Voxels<bool>,
     camera: PitchYawCamera,
@@ -72,12 +73,13 @@ impl MainState {
 
         let server = "127.0.0.1:25566".parse().unwrap();
         let client = Peer::start(PeerMode::Client { server }, blockgame_server::PROTOCOL);
-        client.send(server, [0, 1, 2, 3].to_vec());
-        client.send(server, [3, 0, 1, 2].to_vec());
+        client.send(server, [0, 1, 2, 3].to_vec()).unwrap();
+        client.send(server, [3, 0, 1, 2].to_vec()).unwrap();
 
         Ok(MainState {
             log,
             renderer,
+            input: InputState::new(),
 
             world,
             player_position,
@@ -89,10 +91,23 @@ impl MainState {
 impl EventHandler for MainState {
     fn update(&mut self, ctx: &mut Context) -> GameResult<()> {
         const DESIRED_FPS: u32 = 60;
-        const _DELTA: f32 = 1.0 / DESIRED_FPS as f32;
+        const DELTA: f32 = 1.0 / DESIRED_FPS as f32;
 
         while timer::check_update_time(ctx, DESIRED_FPS) {
-            //self.camera.yaw += DELTA;
+            let mut input = Vector2::new(0.0, 0.0);
+            if self.input.backward { input.y += 1.0; }
+            if self.input.forward { input.y -= 1.0; }
+            if self.input.left { input.x -= 1.0; }
+            if self.input.right { input.x += 1.0; }
+            if input.x != 0.0 || input.y != 0.0 {
+                input = input.normalize();
+            }
+
+            rotate(&mut input, -self.camera.yaw);
+
+            const SPEED: f32 = 2.0;
+            self.player_position.x += input.x * DELTA * SPEED;
+            self.player_position.z += input.y * DELTA * SPEED;
         }
 
         Ok(())
@@ -108,16 +123,29 @@ impl EventHandler for MainState {
         Ok(())
     }
 
-    fn mouse_button_down_event(
-        &mut self, _ctx: &mut Context,
-        _button: MouseButton, _x: i32, _y: i32
+    fn key_down_event(
+        &mut self, ctx: &mut Context, keycode: Keycode, _keymod: Mod, _repeat: bool
     ) {
+        match keycode {
+            Keycode::S => self.input.backward = true,
+            Keycode::W => self.input.forward = true,
+            Keycode::A => self.input.left = true,
+            Keycode::D => self.input.right = true,
+            Keycode::Escape => ctx.quit().unwrap(),
+            _ => {}
+        }
     }
 
-    fn mouse_button_up_event(
-        &mut self, _ctx: &mut Context,
-        _button: MouseButton, _x: i32, _y: i32
+    fn key_up_event(
+        &mut self, _ctx: &mut Context, keycode: Keycode, _keymod: Mod, _repeat: bool
     ) {
+        match keycode {
+            Keycode::S => self.input.backward = false,
+            Keycode::W => self.input.forward = false,
+            Keycode::A => self.input.left = false,
+            Keycode::D => self.input.right = false,
+            _ => {}
+        }
     }
 
     fn mouse_motion_event(
@@ -138,3 +166,32 @@ impl EventHandler for MainState {
         false
     }
 }
+
+struct InputState {
+    backward: bool,
+    forward: bool,
+    left: bool,
+    right: bool,
+}
+
+impl InputState {
+    pub fn new() -> Self {
+        InputState {
+            backward: false,
+            forward: false,
+            left: false,
+            right: false,
+        }
+    }
+}
+
+fn rotate(value: &mut Vector2<f32>, radians: f32) {
+     let sin = radians.sin();
+     let cos = radians.cos();
+
+     let tx = value.x;
+     let ty = value.y;
+
+     value.x = (cos * tx) - (sin * ty);
+     value.y = (sin * tx) + (cos * ty);
+ }
