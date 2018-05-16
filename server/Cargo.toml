@@ -4,3 +4,6 @@ version = "0.1.0"
 authors = ["Layl <LaylConway@users.noreply.github.com>"]
 
 [dependencies]
+slog = "2"
+sloggers = "0.2"
+mio = "0.6"

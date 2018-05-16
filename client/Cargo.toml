@@ -8,6 +8,7 @@ ggez = "0.4"
 nalgebra = { version = "0.14", features = ["serde-serialize"] }
 slog = "2"
 noise = "0.5"
+mio = "0.6"
 lagato = { path = "../../common/lagato" }
 lagato-ggez = { path = "../../common/lagato-ggez" }
 blockengine = { path = "../../common/blockengine" }
