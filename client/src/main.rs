@@ -18,7 +18,7 @@ use {
     slog::{Logger},
     noise::{NoiseFn, HybridMulti},
 
-    udpcon::{Peer, PeerMode},
+    udpcon::{Peer},
     lagato::{camera::{PitchYawCamera}, grid::{Voxels}},
     blockengine::{rendering::{Renderer}},
 };
@@ -72,7 +72,7 @@ impl MainState {
         let camera = PitchYawCamera::new(0.0, 0.0);
 
         let server = "127.0.0.1:25566".parse().unwrap();
-        let client = Peer::start(PeerMode::Client { server }, blockgame_server::PROTOCOL);
+        let client = Peer::start(None, blockgame_server::PROTOCOL);
         client.send(server, [0, 1, 2, 3].to_vec()).unwrap();
         client.send(server, [3, 0, 1, 2].to_vec()).unwrap();
 
