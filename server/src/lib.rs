@@ -13,11 +13,11 @@ pub fn run(log: &Logger) {
     info!(log, "Starting Server");
 
     let address = "0.0.0.0:25566".parse().unwrap();
-    let server = Peer::start(PeerMode::Server { address }, PROTOCOL);
+    let mut server = Peer::start(PeerMode::Server { address }, PROTOCOL);
 
     loop {
-        while let Some(data) = server.try_recv() {
-            println!("Data {:?} from {:?}", data.0, data.1);
+        for event in server.poll() {
+            info!(log, "Network Event {:?}", event);
         }
 
         thread::sleep(Duration::from_millis(10));

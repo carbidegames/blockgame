@@ -152,13 +152,7 @@ impl EventHandler for MainState {
         &mut self, _ctx: &mut Context,
         _state: MouseState, _x: i32, _y: i32, xrel: i32, yrel: i32
     ) {
-        let sensitivity = 0.0025;
-
-        self.camera.yaw += xrel as f32 * -sensitivity;
-        self.camera.pitch += yrel as f32 * -sensitivity;
-
-        let limit = ::std::f32::consts::PI * 0.475;
-        self.camera.pitch = self.camera.pitch.max(-limit).min(limit);
+        self.camera.handle_mouse_motion(Vector2::new(xrel, yrel));
     }
 
     fn quit_event(&mut self, _ctx: &mut Context) -> bool {
