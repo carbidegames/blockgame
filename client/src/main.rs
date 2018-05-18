@@ -20,7 +20,7 @@ use {
 
     udpcon::{Peer, Event},
     lagato::{camera::{PitchYawCamera}, grid::{Voxels}},
-    blockengine::{rendering::{Renderer}},
+    blockengine::{rendering::{Renderer, VoxelsMesh}, Chunk},
 };
 
 pub fn main() -> GameResult<()> {
@@ -36,7 +36,7 @@ struct MainState {
     input: InputState,
     client: Peer,
 
-    world: Voxels<bool>,
+    chunks: Vec<Chunk>,
     camera: PitchYawCamera,
     player_position: Point3<f32>,
 }
@@ -47,27 +47,43 @@ impl MainState {
 
         mouse::set_relative_mode(ctx, true);
 
+        let renderer = Renderer::new(ctx);
+
         // Create and generate world
-        let size = Vector3::new(128, 32, 128);
-        let mut world = Voxels::empty(size);
+        let chunk_size = Vector3::new(16, 16, 16);
         let noise = HybridMulti::new();
-        for x in 0..size.x {
-            for z in 0..size.z {
-                let value = noise.get([x as f64 * 0.005, z as f64 * 0.005]);
 
-                // Re-range the value to between 0 and 1
-                let ranged_value = (value + 1.0) / 2.0;
-                let clamped_value = ranged_value.min(1.0).max(0.0);
+        let mut chunks = Vec::new();
+        // TODO: Restructure bounds to any kind of cell range
+        for chunk_x in -3..4 {
+            for chunk_z in -3..4 {
+                let mut chunk_voxels = Voxels::empty(chunk_size);
+                for x in 0..chunk_size.x {
+                    for z in 0..chunk_size.z {
+                        let total_x = (chunk_x * chunk_size.x + x) as f64;
+                        let total_z = (chunk_z * chunk_size.z + z) as f64;
+                        let value = noise.get([total_x * 0.005, total_z * 0.005]);
 
-                let height = ((size.y-1) as f64 * clamped_value).round() + 1.0;
+                        // Re-range the value to between 0 and 1
+                        let ranged_value = (value + 1.0) / 2.0;
+                        let clamped_value = ranged_value.min(1.0).max(0.0);
 
-                for y in 0..height as i32 {
-                    *world.get_mut(Point3::new(x, y, z)).unwrap() = true;
+                        let height = ((chunk_size.y-1) as f64 * clamped_value).round() + 1.0;
+
+                        for y in 0..height as i32 {
+                            *chunk_voxels.get_mut(Point3::new(x, y, z)).unwrap() = true;
+                        }
+                    }
                 }
+
+                let mesh = VoxelsMesh::triangulate(ctx, &chunk_voxels);
+                chunks.push(Chunk {
+                    position: Vector2::new(chunk_x, chunk_z),
+                    voxels: chunk_voxels,
+                    mesh,
+                });
             }
         }
-
-        let renderer = Renderer::new(ctx, &world);
 
         let player_position = Point3::new(0.0, 40.0, 0.0);
         let camera = PitchYawCamera::new(0.0, 0.0);
@@ -83,7 +99,7 @@ impl MainState {
             input: InputState::new(),
             client,
 
-            world,
+            chunks,
             player_position,
             camera,
         })
@@ -131,7 +147,7 @@ impl EventHandler for MainState {
             self.player_position + Vector3::new(0.0, 1.5, 0.0)
         );
 
-        self.renderer.draw(ctx, &render_camera)?;
+        self.renderer.draw(ctx, &render_camera, &self.chunks)?;
 
         Ok(())
     }
