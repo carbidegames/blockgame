@@ -18,7 +18,7 @@ pub fn run(log: &Logger) {
     loop {
         for event in server.poll() {
             match event {
-                Event::Packet { source, data } =>
+                Event::Message { source, data } =>
                     info!(log, "Data: {:?} from {}", data, source),
                 Event::NewPeer { address } =>
                     info!(log, "Client Connected: {}", address),

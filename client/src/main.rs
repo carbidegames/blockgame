@@ -73,7 +73,7 @@ impl MainState {
         let camera = PitchYawCamera::new(0.0, 0.0);
 
         let server = "127.0.0.1:25566".parse().unwrap();
-        let client = Peer::start(None, blockgame_server::PROTOCOL);
+        let mut client = Peer::start(None, blockgame_server::PROTOCOL);
         client.send(server, [0, 1, 2, 3].to_vec()).unwrap();
         client.send(server, [3, 0, 1, 2].to_vec()).unwrap();
 
@@ -98,7 +98,7 @@ impl EventHandler for MainState {
         while timer::check_update_time(ctx, DESIRED_FPS) {
             for event in self.client.poll() {
                 match event {
-                    Event::Packet { source, data } =>
+                    Event::Message { source, data } =>
                         info!(self.log, "Data: {:?} from {}", data, source),
                     Event::NewPeer { address } =>
                         info!(self.log, "Server Connected: {}", address),
