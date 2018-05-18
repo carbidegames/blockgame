@@ -4,7 +4,7 @@ extern crate udpcon;
 use {
     std::{thread, time::{Duration}},
     slog::{Logger},
-    udpcon::{Peer},
+    udpcon::{Peer, Event},
 };
 
 pub const PROTOCOL: &str = concat!("blockgame-", env!("CARGO_PKG_VERSION"));
@@ -17,7 +17,14 @@ pub fn run(log: &Logger) {
 
     loop {
         for event in server.poll() {
-            info!(log, "Network Event {:?}", event);
+            match event {
+                Event::Packet { source, data } =>
+                    info!(log, "Data: {:?} from {}", data, source),
+                Event::NewPeer { address } =>
+                    info!(log, "Client Connected: {}", address),
+                Event::PeerTimedOut { address } =>
+                    info!(log, "Client Disconnected: {}", address),
+            }
         }
 
         thread::sleep(Duration::from_millis(10));

@@ -18,7 +18,7 @@ use {
     slog::{Logger},
     noise::{NoiseFn, HybridMulti},
 
-    udpcon::{Peer},
+    udpcon::{Peer, Event},
     lagato::{camera::{PitchYawCamera}, grid::{Voxels}},
     blockengine::{rendering::{Renderer}},
 };
@@ -34,6 +34,7 @@ struct MainState {
     log: Logger,
     renderer: Renderer,
     input: InputState,
+    client: Peer,
 
     world: Voxels<bool>,
     camera: PitchYawCamera,
@@ -80,6 +81,7 @@ impl MainState {
             log,
             renderer,
             input: InputState::new(),
+            client,
 
             world,
             player_position,
@@ -94,6 +96,17 @@ impl EventHandler for MainState {
         const DELTA: f32 = 1.0 / DESIRED_FPS as f32;
 
         while timer::check_update_time(ctx, DESIRED_FPS) {
+            for event in self.client.poll() {
+                match event {
+                    Event::Packet { source, data } =>
+                        info!(self.log, "Data: {:?} from {}", data, source),
+                    Event::NewPeer { address } =>
+                        info!(self.log, "Server Connected: {}", address),
+                    Event::PeerTimedOut { address } =>
+                        info!(self.log, "Server Disconnected: {}", address),
+                }
+            }
+
             let mut input = Vector2::new(0.0, 0.0);
             if self.input.backward { input.y += 1.0; }
             if self.input.forward { input.y -= 1.0; }
@@ -180,12 +193,12 @@ impl InputState {
 }
 
 fn rotate(value: &mut Vector2<f32>, radians: f32) {
-     let sin = radians.sin();
-     let cos = radians.cos();
+    let sin = radians.sin();
+    let cos = radians.cos();
 
-     let tx = value.x;
-     let ty = value.y;
+    let tx = value.x;
+    let ty = value.y;
 
-     value.x = (cos * tx) - (sin * ty);
-     value.y = (sin * tx) + (cos * ty);
- }
+    value.x = (cos * tx) - (sin * ty);
+    value.y = (sin * tx) + (cos * ty);
+}
