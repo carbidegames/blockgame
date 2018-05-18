@@ -50,7 +50,8 @@ impl MainState {
         let renderer = Renderer::new(ctx);
 
         // Create and generate world
-        let chunk_size = Vector3::new(16, 16, 16);
+        let chunk_size = Vector3::new(16, 32, 16);
+        let noise_multiply = 0.005;
         let noise = HybridMulti::new();
 
         let mut chunks = Vec::new();
@@ -62,7 +63,10 @@ impl MainState {
                     for z in 0..chunk_size.z {
                         let total_x = (chunk_x * chunk_size.x + x) as f64;
                         let total_z = (chunk_z * chunk_size.z + z) as f64;
-                        let value = noise.get([total_x * 0.005, total_z * 0.005]);
+                        let value = noise.get([
+                            total_x * noise_multiply,
+                            total_z * noise_multiply,
+                        ]);
 
                         // Re-range the value to between 0 and 1
                         let ranged_value = (value + 1.0) / 2.0;
