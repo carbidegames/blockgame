@@ -5,12 +5,20 @@ extern crate serde;
 extern crate bincode;
 extern crate udpcon;
 
-use {
-    std::{thread, time::{Duration}},
+pub mod message;
 
-    nalgebra::{Vector2},
+use {
+    std::{
+        collections::{HashMap},
+        thread,
+        time::{Duration}
+    },
+
+    nalgebra::{Vector2, Point3},
     slog::{Logger},
     udpcon::{Peer, Event},
+
+    message::{ClientMessage, ServerMessage, PlayerPosition},
 };
 
 pub const PROTOCOL: &str = concat!("blockgame-", env!("CARGO_PKG_VERSION"));
@@ -18,43 +26,67 @@ pub const PROTOCOL: &str = concat!("blockgame-", env!("CARGO_PKG_VERSION"));
 pub fn run(log: &Logger) {
     info!(log, "Starting Server");
 
+    let mut players = HashMap::new();
+
     let address = "0.0.0.0:25566".parse().unwrap();
     let mut peer = Peer::start(Some(address), PROTOCOL);
 
+    const DESIRED_FPS: u32 = 30;
+    const DELTA: f32 = 1.0 / DESIRED_FPS as f32;
     loop {
         for event in peer.poll() {
             match event {
-                Event::Message { source, data } => {
-                    let message = Message::deserialize(&data);
-                    info!(log, "Message: {:?} from {}", message, source)
+                Event::NewPeer { address } => {
+                    players.insert(address, Player::new());
+                    info!(log, "Client Connected: {}", address)
                 },
-                Event::NewPeer { address } =>
-                    info!(log, "Client Connected: {}", address),
-                Event::PeerTimedOut { address } =>
-                    info!(log, "Client Disconnected: {}", address),
+                Event::PeerTimedOut { address } => {
+                    players.remove(&address);
+                    info!(log, "Client Disconnected: {}", address)
+                },
+                Event::Message { source, data } => {
+                    // TODO: Drop clients sending invalid packets
+                    if let Some(message) = ClientMessage::deserialize(&data) {
+                        match message {
+                            ClientMessage::PlayerFrame(player_frame) =>
+                                players.get_mut(&source).unwrap().input = player_frame.input,
+                        }
+                    }
+                },
             }
         }
 
-        thread::sleep(Duration::from_millis(10));
+        for (address, player) in &mut players {
+            const SPEED: f32 = 2.0;
+
+            let mut input = player.input;
+            if input.x != 0.0 || input.y != 0.0 {
+                input = input.normalize();
+            }
+
+            player.position.x += input.x * DELTA * SPEED;
+            player.position.z += input.y * DELTA * SPEED;
+
+            let message = ServerMessage::PlayerPosition(PlayerPosition {
+                position: player.position,
+            });
+            peer.send(*address, message.serialize()).unwrap();
+        }
+
+        thread::sleep(Duration::from_millis((DELTA * 1000.0).round() as u64));
     }
 }
 
-#[derive(Serialize, Deserialize, Debug)]
-pub enum Message {
-    PlayerFrame(PlayerFrame),
+struct Player {
+    input: Vector2<f32>,
+    position: Point3<f32>,
 }
 
-impl Message {
-    pub fn deserialize(data: &Vec<u8>) -> Option<Self> {
-        bincode::deserialize(&data).ok()
+impl Player {
+    pub fn new() -> Self {
+        Player {
+            input: Vector2::new(0.0, 0.0),
+            position: Point3::new(0.0, 40.0, 0.0),
+        }
     }
-
-    pub fn serialize(&self) -> Vec<u8> {
-        bincode::serialize(self).unwrap()
-    }
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-pub struct PlayerFrame {
-    pub input: Vector2<f32>,
 }

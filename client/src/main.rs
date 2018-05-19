@@ -24,7 +24,7 @@ use {
     lagato::{camera::{PitchYawCamera}, grid::{Voxels, Range}},
     blockengine::{rendering::{Renderer, VoxelsMesh}, Chunk},
 
-    blockgame_server::{Message, PlayerFrame},
+    blockgame_server::message::{ClientMessage, PlayerFrame, ServerMessage},
 };
 
 pub fn main() -> GameResult<()> {
@@ -116,13 +116,11 @@ impl MainState {
 impl EventHandler for MainState {
     fn update(&mut self, ctx: &mut Context) -> GameResult<()> {
         const DESIRED_FPS: u32 = 60;
-        const DELTA: f32 = 1.0 / DESIRED_FPS as f32;
+        const _DELTA: f32 = 1.0 / DESIRED_FPS as f32;
 
         while timer::check_update_time(ctx, DESIRED_FPS) {
             for event in self.peer.poll() {
                 match event {
-                    Event::Message { source, data } =>
-                        info!(self.log, "Data: {:?} from {}", data, source),
                     Event::NewPeer { address } => {
                         info!(self.log, "Server Connected: {}", address);
                         self.connected = true;
@@ -131,6 +129,15 @@ impl EventHandler for MainState {
                         info!(self.log, "Server Disconnected: {}", address);
                         self.connected = false;
                     },
+                    Event::Message { source: _source, data } => {
+                        // TODO: Disconnect from servers sending invalid packets
+                        if let Some(message) = ServerMessage::deserialize(&data) {
+                            match message {
+                                ServerMessage::PlayerPosition(player_position) =>
+                                    self.player_position = player_position.position,
+                            }
+                        }
+                    }
                 }
             }
 
@@ -140,14 +147,11 @@ impl EventHandler for MainState {
             if self.input.forward { input.y -= 1.0; }
             if self.input.left { input.x -= 1.0; }
             if self.input.right { input.x += 1.0; }
-            if input.x != 0.0 || input.y != 0.0 {
-                input = input.normalize();
-            }
             rotate(&mut input, -self.camera.yaw);
 
             // Send that over to the server
             if self.connected {
-                let message = Message::PlayerFrame(PlayerFrame { input });
+                let message = ClientMessage::PlayerFrame(PlayerFrame { input });
                 self.peer.send(self.server, message.serialize()).unwrap();
             }
 
