@@ -19,7 +19,7 @@ use {
     noise::{NoiseFn, HybridMulti},
 
     udpcon::{Peer, Event},
-    lagato::{camera::{PitchYawCamera}, grid::{Voxels}},
+    lagato::{camera::{PitchYawCamera}, grid::{Voxels, Range}},
     blockengine::{rendering::{Renderer, VoxelsMesh}, Chunk},
 };
 
@@ -56,37 +56,34 @@ impl MainState {
 
         let mut chunks = Vec::new();
         // TODO: Restructure bounds to any kind of cell range
-        for chunk_x in -3..4 {
-            for chunk_z in -3..4 {
-                let mut chunk_voxels = Voxels::empty(chunk_size);
-                for x in 0..chunk_size.x {
-                    for z in 0..chunk_size.z {
-                        let total_x = (chunk_x * chunk_size.x + x) as f64;
-                        let total_z = (chunk_z * chunk_size.z + z) as f64;
-                        let value = noise.get([
-                            total_x * noise_multiply,
-                            total_z * noise_multiply,
-                        ]);
+        for chunk_position in Range::new_dim2(-4, -4, 3, 3).iter() {
+            let mut chunk_voxels = Voxels::empty(chunk_size);
+            for local_position in Range::new_dim2(0, 0, chunk_size.x-1, chunk_size.z-1).iter() {
+                let total_x = (chunk_position.x * chunk_size.x + local_position.x) as f64;
+                let total_z = (chunk_position.y * chunk_size.z + local_position.y) as f64;
+                let value = noise.get([
+                    total_x * noise_multiply,
+                    total_z * noise_multiply,
+                ]);
 
-                        // Re-range the value to between 0 and 1
-                        let ranged_value = (value + 1.0) / 2.0;
-                        let clamped_value = ranged_value.min(1.0).max(0.0);
+                // Re-range the value to between 0 and 1
+                let ranged_value = (value + 1.0) / 2.0;
+                let clamped_value = ranged_value.min(1.0).max(0.0);
 
-                        let height = ((chunk_size.y-1) as f64 * clamped_value).round() + 1.0;
+                let height = ((chunk_size.y-1) as f64 * clamped_value).round() + 1.0;
 
-                        for y in 0..height as i32 {
-                            *chunk_voxels.get_mut(Point3::new(x, y, z)).unwrap() = true;
-                        }
-                    }
+                for y in 0..height as i32 {
+                    let voxel_position = Point3::new(local_position.x, y, local_position.y);
+                    *chunk_voxels.get_mut(voxel_position).unwrap() = true;
                 }
-
-                let mesh = VoxelsMesh::triangulate(ctx, &chunk_voxels);
-                chunks.push(Chunk {
-                    position: Vector2::new(chunk_x, chunk_z),
-                    voxels: chunk_voxels,
-                    mesh,
-                });
             }
+
+            let mesh = VoxelsMesh::triangulate(ctx, &chunk_voxels);
+            chunks.push(Chunk {
+                position: chunk_position,
+                voxels: chunk_voxels,
+                mesh,
+            });
         }
 
         let player_position = Point3::new(0.0, 40.0, 0.0);
