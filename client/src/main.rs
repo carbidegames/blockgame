@@ -9,6 +9,8 @@ extern crate blockengine;
 extern crate blockgame_server;
 
 use {
+    std::net::{SocketAddr},
+
     ggez::{
         event::{EventHandler, Keycode, Mod, MouseState},
         timer, mouse,
@@ -21,6 +23,8 @@ use {
     udpcon::{Peer, Event},
     lagato::{camera::{PitchYawCamera}, grid::{Voxels, Range}},
     blockengine::{rendering::{Renderer, VoxelsMesh}, Chunk},
+
+    blockgame_server::{Message, PlayerFrame},
 };
 
 pub fn main() -> GameResult<()> {
@@ -34,7 +38,9 @@ struct MainState {
     log: Logger,
     renderer: Renderer,
     input: InputState,
-    client: Peer,
+    server: SocketAddr,
+    peer: Peer,
+    connected: bool,
 
     chunks: Vec<Chunk>,
     camera: PitchYawCamera,
@@ -55,7 +61,6 @@ impl MainState {
         let noise = HybridMulti::new();
 
         let mut chunks = Vec::new();
-        // TODO: Restructure bounds to any kind of cell range
         for chunk_position in Range::new_dim2(-4, -4, 3, 3).iter() {
             let mut chunk_voxels = Voxels::empty(chunk_size);
             for local_position in Range::new_dim2(0, 0, chunk_size.x-1, chunk_size.z-1).iter() {
@@ -90,15 +95,16 @@ impl MainState {
         let camera = PitchYawCamera::new(0.0, 0.0);
 
         let server = "127.0.0.1:25566".parse().unwrap();
-        let mut client = Peer::start(None, blockgame_server::PROTOCOL);
-        client.send(server, [0, 1, 2, 3].to_vec()).unwrap();
-        client.send(server, [3, 0, 1, 2].to_vec()).unwrap();
+        let mut peer = Peer::start(None, blockgame_server::PROTOCOL);
+        peer.connect(server);
 
         Ok(MainState {
             log,
             renderer,
             input: InputState::new(),
-            client,
+            server,
+            peer,
+            connected: false,
 
             chunks,
             player_position,
@@ -113,17 +119,22 @@ impl EventHandler for MainState {
         const DELTA: f32 = 1.0 / DESIRED_FPS as f32;
 
         while timer::check_update_time(ctx, DESIRED_FPS) {
-            for event in self.client.poll() {
+            for event in self.peer.poll() {
                 match event {
                     Event::Message { source, data } =>
                         info!(self.log, "Data: {:?} from {}", data, source),
-                    Event::NewPeer { address } =>
-                        info!(self.log, "Server Connected: {}", address),
-                    Event::PeerTimedOut { address } =>
-                        info!(self.log, "Server Disconnected: {}", address),
+                    Event::NewPeer { address } => {
+                        info!(self.log, "Server Connected: {}", address);
+                        self.connected = true;
+                    },
+                    Event::PeerTimedOut { address } => {
+                        info!(self.log, "Server Disconnected: {}", address);
+                        self.connected = false;
+                    },
                 }
             }
 
+            // Calculate which direction we need to move based on the current input
             let mut input = Vector2::new(0.0, 0.0);
             if self.input.backward { input.y += 1.0; }
             if self.input.forward { input.y -= 1.0; }
@@ -132,12 +143,17 @@ impl EventHandler for MainState {
             if input.x != 0.0 || input.y != 0.0 {
                 input = input.normalize();
             }
-
             rotate(&mut input, -self.camera.yaw);
 
-            const SPEED: f32 = 2.0;
+            // Send that over to the server
+            if self.connected {
+                let message = Message::PlayerFrame(PlayerFrame { input });
+                self.peer.send(self.server, message.serialize()).unwrap();
+            }
+
+            /*const SPEED: f32 = 2.0;
             self.player_position.x += input.x * DELTA * SPEED;
-            self.player_position.z += input.y * DELTA * SPEED;
+            self.player_position.z += input.y * DELTA * SPEED;*/
         }
 
         Ok(())

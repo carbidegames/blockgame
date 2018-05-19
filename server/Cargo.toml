@@ -4,6 +4,10 @@ version = "0.1.0"
 authors = ["Layl <LaylConway@users.noreply.github.com>"]
 
 [dependencies]
+nalgebra = { version = "0.14", features = ["serde-serialize"] }
 slog = "2"
 sloggers = "0.2"
+serde = "1"
+serde_derive = "1"
+bincode = "1"
 udpcon = { path = "../../common/udpcon" }
