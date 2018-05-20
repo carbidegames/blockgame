@@ -3,7 +3,7 @@ use {
 
     nalgebra::{Vector2, Point3},
     slog::{Logger},
-    udpcon::{Peer, Event},
+    udpcon::{Peer, Event, Reliability},
 
     blockgame_server::{self, message::{ClientMessage, PlayerFrame, ServerMessage}},
 };
@@ -13,7 +13,6 @@ pub struct Connection {
     server: SocketAddr,
     peer: Option<Peer>,
     connected: bool,
-    player_update_sequence: u32,
 }
 
 impl Connection {
@@ -26,7 +25,6 @@ impl Connection {
             server,
             peer: Some(peer),
             connected: false,
-            player_update_sequence: 0,
         }
     }
 
@@ -51,12 +49,8 @@ impl Connection {
                         // TODO: Disconnect from servers sending invalid packets
                         if let Some(message) = ServerMessage::deserialize(&data) {
                             match message {
-                                ServerMessage::PlayerUpdate(player_update) => {
-                                    if player_update.sequence > self.player_update_sequence {
-                                        self.player_update_sequence = player_update.sequence;
-                                        *player_position = player_update.position
-                                    }
-                                },
+                                ServerMessage::PlayerUpdate(player_update) =>
+                                    *player_position = player_update.position,
                             }
                         }
                     }
@@ -71,6 +65,8 @@ impl Connection {
         }
 
         let message = ClientMessage::PlayerFrame(PlayerFrame { input });
-        self.peer.as_mut().unwrap().send(self.server, message.serialize()).unwrap();
+        self.peer.as_mut().unwrap().send(
+            self.server, message.serialize(), Reliability::Sequenced,
+        ).unwrap();
     }
 }

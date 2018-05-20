@@ -16,7 +16,7 @@ use {
 
     nalgebra::{Vector2, Point3},
     slog::{Logger},
-    udpcon::{Peer, Event},
+    udpcon::{Peer, Event, Reliability},
 
     message::{ClientMessage, ServerMessage, PlayerUpdate},
 };
@@ -27,8 +27,6 @@ pub fn run(log: &Logger) {
     info!(log, "Starting Server");
 
     let mut players = HashMap::new();
-
-    let mut player_update_sequence = 0;
 
     let address = "0.0.0.0:25566".parse().unwrap();
     let mut peer = Peer::start(Some(address), PROTOCOL);
@@ -69,12 +67,10 @@ pub fn run(log: &Logger) {
             player.position.x += input.x * DELTA * SPEED;
             player.position.z += input.y * DELTA * SPEED;
 
-            player_update_sequence += 1;
             let message = ServerMessage::PlayerUpdate(PlayerUpdate {
-                sequence: player_update_sequence,
                 position: player.position,
             });
-            peer.send(*address, message.serialize()).unwrap();
+            peer.send(*address, message.serialize(), Reliability::Sequenced).unwrap();
         }
 
         thread::sleep(Duration::from_millis((DELTA * 1000.0).floor() as u64));

@@ -41,6 +41,5 @@ impl ServerMessage {
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct PlayerUpdate {
-    pub sequence: u32,
     pub position: Point3<f32>,
 }
