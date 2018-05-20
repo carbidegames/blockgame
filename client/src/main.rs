@@ -39,7 +39,7 @@ struct MainState {
     renderer: Renderer,
     input: InputState,
     server: SocketAddr,
-    peer: Peer,
+    peer: Option<Peer>,
     connected: bool,
 
     chunks: Vec<Chunk>,
@@ -103,7 +103,7 @@ impl MainState {
             renderer,
             input: InputState::new(),
             server,
-            peer,
+            peer: Some(peer),
             connected: false,
 
             chunks,
@@ -119,22 +119,24 @@ impl EventHandler for MainState {
         const _DELTA: f32 = 1.0 / DESIRED_FPS as f32;
 
         while timer::check_update_time(ctx, DESIRED_FPS) {
-            for event in self.peer.poll() {
-                match event {
-                    Event::NewPeer { address } => {
-                        info!(self.log, "Server Connected: {}", address);
-                        self.connected = true;
-                    },
-                    Event::PeerTimedOut { address } => {
-                        info!(self.log, "Server Disconnected: {}", address);
-                        self.connected = false;
-                    },
-                    Event::Message { source: _source, data } => {
-                        // TODO: Disconnect from servers sending invalid packets
-                        if let Some(message) = ServerMessage::deserialize(&data) {
-                            match message {
-                                ServerMessage::PlayerPosition(player_position) =>
-                                    self.player_position = player_position.position,
+            if let Some(ref mut peer) = self.peer {
+                for event in peer.poll() {
+                    match event {
+                        Event::NewPeer { address } => {
+                            info!(self.log, "Server Connected: {}", address);
+                            self.connected = true;
+                        },
+                        Event::PeerTimedOut { address } => {
+                            info!(self.log, "Server Disconnected: {}", address);
+                            self.connected = false;
+                        },
+                        Event::Message { source: _source, data } => {
+                            // TODO: Disconnect from servers sending invalid packets
+                            if let Some(message) = ServerMessage::deserialize(&data) {
+                                match message {
+                                    ServerMessage::PlayerPosition(player_position) =>
+                                        self.player_position = player_position.position,
+                                }
                             }
                         }
                     }
@@ -152,12 +154,8 @@ impl EventHandler for MainState {
             // Send that over to the server
             if self.connected {
                 let message = ClientMessage::PlayerFrame(PlayerFrame { input });
-                self.peer.send(self.server, message.serialize()).unwrap();
+                self.peer.as_mut().unwrap().send(self.server, message.serialize()).unwrap();
             }
-
-            /*const SPEED: f32 = 2.0;
-            self.player_position.x += input.x * DELTA * SPEED;
-            self.player_position.z += input.y * DELTA * SPEED;*/
         }
 
         Ok(())
@@ -207,6 +205,10 @@ impl EventHandler for MainState {
 
     fn quit_event(&mut self, _ctx: &mut Context) -> bool {
         info!(self.log, "quit_event() callback called, quitting");
+
+        self.peer.take().unwrap().stop();
+        self.connected = false;
+
         false
     }
 }
