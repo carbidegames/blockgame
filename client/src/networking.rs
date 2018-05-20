@@ -13,6 +13,7 @@ pub struct Connection {
     server: SocketAddr,
     peer: Option<Peer>,
     connected: bool,
+    player_update_sequence: u32,
 }
 
 impl Connection {
@@ -25,6 +26,7 @@ impl Connection {
             server,
             peer: Some(peer),
             connected: false,
+            player_update_sequence: 0,
         }
     }
 
@@ -49,8 +51,12 @@ impl Connection {
                         // TODO: Disconnect from servers sending invalid packets
                         if let Some(message) = ServerMessage::deserialize(&data) {
                             match message {
-                                ServerMessage::PlayerPosition(new_player_position) =>
-                                    *player_position = new_player_position.position,
+                                ServerMessage::PlayerUpdate(player_update) => {
+                                    if player_update.sequence > self.player_update_sequence {
+                                        self.player_update_sequence = player_update.sequence;
+                                        *player_position = player_update.position
+                                    }
+                                },
                             }
                         }
                     }

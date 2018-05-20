@@ -26,7 +26,7 @@ pub struct PlayerFrame {
 
 #[derive(Serialize, Deserialize, Debug)]
 pub enum ServerMessage {
-    PlayerPosition(PlayerPosition),
+    PlayerUpdate(PlayerUpdate),
 }
 
 impl ServerMessage {
@@ -40,6 +40,7 @@ impl ServerMessage {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-pub struct PlayerPosition {
+pub struct PlayerUpdate {
+    pub sequence: u32,
     pub position: Point3<f32>,
 }
