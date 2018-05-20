@@ -9,9 +9,9 @@ extern crate blockengine;
 extern crate blockengine_rendering;
 extern crate blockgame_server;
 
-use {
-    std::net::{SocketAddr},
+mod networking;
 
+use {
     ggez::{
         event::{EventHandler, Keycode, Mod, MouseState},
         timer, mouse,
@@ -21,12 +21,11 @@ use {
     slog::{Logger},
     noise::{NoiseFn, HybridMulti},
 
-    udpcon::{Peer, Event},
     lagato::{camera::{PitchYawCamera}, grid::{Voxels, Range}},
     blockengine::{Chunk},
     blockengine_rendering::{Renderer, VoxelsMesh, RenderChunk},
 
-    blockgame_server::message::{ClientMessage, PlayerFrame, ServerMessage},
+    networking::{Connection},
 };
 
 pub fn main() -> GameResult<()> {
@@ -40,9 +39,7 @@ struct MainState {
     log: Logger,
     renderer: Renderer,
     input: InputState,
-    server: SocketAddr,
-    peer: Option<Peer>,
-    connected: bool,
+    connection: Connection,
 
     chunks: Vec<RenderChunk>,
     camera: PitchYawCamera,
@@ -98,17 +95,13 @@ impl MainState {
         let player_position = Point3::new(0.0, 40.0, 0.0);
         let camera = PitchYawCamera::new(0.0, 0.0);
 
-        let server = "127.0.0.1:25566".parse().unwrap();
-        let mut peer = Peer::start(None, blockgame_server::PROTOCOL);
-        peer.connect(server);
+        let connection = Connection::new();
 
         Ok(MainState {
             log,
             renderer,
             input: InputState::new(),
-            server,
-            peer: Some(peer),
-            connected: false,
+            connection,
 
             chunks,
             player_position,
@@ -123,29 +116,7 @@ impl EventHandler for MainState {
         const _DELTA: f32 = 1.0 / DESIRED_FPS as f32;
 
         while timer::check_update_time(ctx, DESIRED_FPS) {
-            if let Some(ref mut peer) = self.peer {
-                for event in peer.poll() {
-                    match event {
-                        Event::NewPeer { address } => {
-                            info!(self.log, "Server Connected: {}", address);
-                            self.connected = true;
-                        },
-                        Event::PeerTimedOut { address } => {
-                            info!(self.log, "Server Disconnected: {}", address);
-                            self.connected = false;
-                        },
-                        Event::Message { source: _source, data } => {
-                            // TODO: Disconnect from servers sending invalid packets
-                            if let Some(message) = ServerMessage::deserialize(&data) {
-                                match message {
-                                    ServerMessage::PlayerPosition(player_position) =>
-                                        self.player_position = player_position.position,
-                                }
-                            }
-                        }
-                    }
-                }
-            }
+            self.connection.update(&self.log, &mut self.player_position);
 
             // Calculate which direction we need to move based on the current input
             let mut input = Vector2::new(0.0, 0.0);
@@ -156,10 +127,7 @@ impl EventHandler for MainState {
             rotate(&mut input, -self.camera.yaw);
 
             // Send that over to the server
-            if self.connected {
-                let message = ClientMessage::PlayerFrame(PlayerFrame { input });
-                self.peer.as_mut().unwrap().send(self.server, message.serialize()).unwrap();
-            }
+            self.connection.send_input(input);
         }
 
         Ok(())
@@ -210,8 +178,7 @@ impl EventHandler for MainState {
     fn quit_event(&mut self, _ctx: &mut Context) -> bool {
         info!(self.log, "quit_event() callback called, quitting");
 
-        self.peer.take().unwrap().stop();
-        self.connected = false;
+        self.connection.stop();
 
         false
     }

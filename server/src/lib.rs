@@ -73,7 +73,7 @@ pub fn run(log: &Logger) {
             peer.send(*address, message.serialize()).unwrap();
         }
 
-        thread::sleep(Duration::from_millis((DELTA * 1000.0).round() as u64));
+        thread::sleep(Duration::from_millis((DELTA * 1000.0).floor() as u64));
     }
 }
 
