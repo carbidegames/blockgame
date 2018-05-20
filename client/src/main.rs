@@ -6,6 +6,7 @@ extern crate udpcon;
 extern crate lagato;
 extern crate lagato_ggez;
 extern crate blockengine;
+extern crate blockengine_rendering;
 extern crate blockgame_server;
 
 use {
@@ -22,7 +23,8 @@ use {
 
     udpcon::{Peer, Event},
     lagato::{camera::{PitchYawCamera}, grid::{Voxels, Range}},
-    blockengine::{rendering::{Renderer, VoxelsMesh}, Chunk},
+    blockengine::{Chunk},
+    blockengine_rendering::{Renderer, VoxelsMesh, RenderChunk},
 
     blockgame_server::message::{ClientMessage, PlayerFrame, ServerMessage},
 };
@@ -42,7 +44,7 @@ struct MainState {
     peer: Option<Peer>,
     connected: bool,
 
-    chunks: Vec<Chunk>,
+    chunks: Vec<RenderChunk>,
     camera: PitchYawCamera,
     player_position: Point3<f32>,
 }
@@ -84,9 +86,11 @@ impl MainState {
             }
 
             let mesh = VoxelsMesh::triangulate(ctx, &chunk_voxels);
-            chunks.push(Chunk {
-                position: chunk_position,
-                voxels: chunk_voxels,
+            chunks.push(RenderChunk {
+                data: Chunk {
+                    position: chunk_position,
+                    voxels: chunk_voxels,
+                },
                 mesh,
             });
         }
