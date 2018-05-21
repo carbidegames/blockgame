@@ -23,7 +23,7 @@ use {
 
     lagato::{camera::{PitchYawCamera}, grid::{Voxels, Range}},
     blockengine::{Chunk},
-    blockengine_rendering::{Renderer, VoxelsMesh, RenderChunk},
+    blockengine_rendering::{Renderer, VoxelsMesh},
 
     networking::{Connection},
 };
@@ -41,7 +41,7 @@ struct MainState {
     input: InputState,
     connection: Connection,
 
-    chunks: Vec<RenderChunk>,
+    chunks: Vec<Chunk<VoxelsMesh>>,
     camera: PitchYawCamera,
     player_position: Point3<f32>,
 }
@@ -83,12 +83,10 @@ impl MainState {
             }
 
             let mesh = VoxelsMesh::triangulate(ctx, &chunk_voxels);
-            chunks.push(RenderChunk {
-                data: Chunk {
-                    position: chunk_position,
-                    voxels: chunk_voxels,
-                },
-                mesh,
+            chunks.push(Chunk {
+                position: chunk_position,
+                voxels: chunk_voxels,
+                data: mesh,
             });
         }
 
