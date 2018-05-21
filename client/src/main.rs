@@ -55,16 +55,23 @@ impl MainState {
         let renderer = Renderer::new(ctx);
 
         // Create and generate world
-        let chunk_size = Vector3::new(16, 32, 16);
+        let chunk_size = Vector3::new(16, 16, 16);
+        let height_in_chunks = 4;
         let noise_multiply = 0.005;
         let noise = HybridMulti::new();
 
         let mut chunks = Vec::new();
-        for chunk_position in Range::new_dim2(-4, -4, 3, 3).iter() {
-            let mut chunk_voxels = Voxels::empty(chunk_size);
+        for chunk_column in Range::new_dim2(-4, -4, 3, 3).iter() {
+            let mut column = Vec::new();
+
+            for _ in 0..height_in_chunks {
+                column.push(Voxels::empty(chunk_size));
+            }
+
+            // Go through all top-down grid positions in the column
             for local_position in Range::new_dim2(0, 0, chunk_size.x-1, chunk_size.z-1).iter() {
-                let total_x = (chunk_position.x * chunk_size.x + local_position.x) as f64;
-                let total_z = (chunk_position.y * chunk_size.z + local_position.y) as f64;
+                let total_x = (chunk_column.x * chunk_size.x + local_position.x) as f64;
+                let total_z = (chunk_column.y * chunk_size.z + local_position.y) as f64;
                 let value = noise.get([
                     total_x * noise_multiply,
                     total_z * noise_multiply,
@@ -74,20 +81,29 @@ impl MainState {
                 let ranged_value = (value + 1.0) / 2.0;
                 let clamped_value = ranged_value.min(1.0).max(0.0);
 
-                let height = ((chunk_size.y-1) as f64 * clamped_value).round() + 1.0;
+                let max_height = height_in_chunks * chunk_size.y;
+                let height = ((max_height-1) as f64 * clamped_value).round() + 1.0;
+                let height = height as i32;
 
-                for y in 0..height as i32 {
-                    let voxel_position = Point3::new(local_position.x, y, local_position.y);
-                    *chunk_voxels.get_mut(voxel_position).unwrap() = true;
+                // Go through all blocks at this x y point
+                for y in 0..height {
+                    let chunk_y = y / chunk_size.y;
+                    let local_y = y % chunk_size.y;
+                    let voxels = &mut column[chunk_y as usize];
+
+                    let voxel_position = Point3::new(local_position.x, local_y, local_position.y);
+                    *voxels.get_mut(voxel_position).unwrap() = true;
                 }
             }
 
-            let mesh = VoxelsMesh::triangulate(ctx, &chunk_voxels);
-            chunks.push(Chunk {
-                position: chunk_position,
-                voxels: chunk_voxels,
-                data: mesh,
-            });
+            for (i, voxels) in column.into_iter().enumerate() {
+                let mesh = VoxelsMesh::triangulate(ctx, &voxels);
+                chunks.push(Chunk {
+                    position: Point3::new(chunk_column.x, i as i32, chunk_column.y),
+                    voxels,
+                    data: mesh,
+                });
+            }
         }
 
         let player_position = Point3::new(0.0, 40.0, 0.0);
