@@ -23,7 +23,7 @@ use {
 
     lagato::{camera::{PitchYawCamera}, grid::{Voxels, Range}},
     blockengine::{Chunk},
-    blockengine_rendering::{Renderer, VoxelsMesh, Object},
+    blockengine_rendering::{Renderer, Mesh, Object, triangulate_voxels},
 
     networking::{Connection},
 };
@@ -99,7 +99,7 @@ impl MainState {
             }
 
             for (i, voxels) in column.into_iter().enumerate() {
-                let mesh = VoxelsMesh::triangulate(ctx, &voxels);
+                let mesh = Mesh::new(ctx, &triangulate_voxels(&voxels));
                 chunks.push(Chunk {
                     position: Point3::new(chunk_column.x, i as i32, chunk_column.y),
                     voxels,
