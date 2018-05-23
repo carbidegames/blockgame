@@ -23,7 +23,7 @@ use {
 
     lagato::{camera::{PitchYawCamera}, grid::{Voxels, Range}},
     blockengine::{Chunk},
-    blockengine_rendering::{Renderer, VoxelsMesh},
+    blockengine_rendering::{Renderer, VoxelsMesh, Object},
 
     networking::{Connection},
 };
@@ -41,7 +41,8 @@ struct MainState {
     input: InputState,
     connection: Connection,
 
-    chunks: Vec<Chunk<VoxelsMesh>>,
+    chunks: Vec<Chunk>,
+    objects: Vec<Object>,
     camera: PitchYawCamera,
     player_position: Point3<f32>,
 }
@@ -61,6 +62,7 @@ impl MainState {
         let noise = HybridMulti::new();
 
         let mut chunks = Vec::new();
+        let mut objects = Vec::new();
         for chunk_column in Range::new_dim2(-4, -4, 3, 3).iter() {
             let mut column = Vec::new();
 
@@ -101,7 +103,12 @@ impl MainState {
                 chunks.push(Chunk {
                     position: Point3::new(chunk_column.x, i as i32, chunk_column.y),
                     voxels,
-                    data: mesh,
+                });
+                objects.push(Object {
+                    position: Point3::new(
+                        (chunk_column.x * 16) as f32, (i * 16) as f32, (chunk_column.y * 16) as f32
+                    ),
+                    mesh,
                 });
             }
         }
@@ -118,6 +125,7 @@ impl MainState {
             connection,
 
             chunks,
+            objects,
             player_position,
             camera,
         })
@@ -152,7 +160,7 @@ impl EventHandler for MainState {
             self.player_position + Vector3::new(0.0, 1.5, 0.0)
         );
 
-        self.renderer.draw(ctx, &render_camera, &self.chunks)?;
+        self.renderer.draw(ctx, &render_camera, &self.objects)?;
 
         Ok(())
     }
