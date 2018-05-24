@@ -21,7 +21,7 @@ use {
     slog::{Logger},
     noise::{NoiseFn, HybridMulti},
 
-    lagato::{camera::{PitchYawCamera}, grid::{Voxels, Range}},
+    lagato::{camera::{PitchYawCamera}, grid::{Voxels, Range}, DirectionalInput, rotate_vector},
     blockengine::{Chunk},
     blockengine_rendering::{Renderer, Mesh, Object, triangulate_voxels},
 
@@ -38,7 +38,7 @@ pub fn main() -> GameResult<()> {
 struct MainState {
     log: Logger,
     renderer: Renderer,
-    input: InputState,
+    input: DirectionalInput,
     connection: Connection,
 
     chunks: Vec<Chunk>,
@@ -54,6 +54,7 @@ impl MainState {
         mouse::set_relative_mode(ctx, true);
 
         let renderer = Renderer::new(ctx);
+        let input = DirectionalInput::new();
 
         // Create and generate world
         let chunk_size = Vector3::new(16, 16, 16);
@@ -121,7 +122,7 @@ impl MainState {
         Ok(MainState {
             log,
             renderer,
-            input: InputState::new(),
+            input,
             connection,
 
             chunks,
@@ -141,12 +142,8 @@ impl EventHandler for MainState {
             self.connection.update(&self.log, &mut self.player_position);
 
             // Calculate which direction we need to move based on the current input
-            let mut input = Vector2::new(0.0, 0.0);
-            if self.input.backward { input.y += 1.0; }
-            if self.input.forward { input.y -= 1.0; }
-            if self.input.left { input.x -= 1.0; }
-            if self.input.right { input.x += 1.0; }
-            rotate(&mut input, -self.camera.yaw);
+            let mut input = self.input.to_vector();
+            rotate_vector(&mut input, -self.camera.yaw);
 
             // Send that over to the server
             self.connection.send_input(input);
@@ -204,33 +201,4 @@ impl EventHandler for MainState {
 
         false
     }
-}
-
-struct InputState {
-    backward: bool,
-    forward: bool,
-    left: bool,
-    right: bool,
-}
-
-impl InputState {
-    pub fn new() -> Self {
-        InputState {
-            backward: false,
-            forward: false,
-            left: false,
-            right: false,
-        }
-    }
-}
-
-fn rotate(value: &mut Vector2<f32>, radians: f32) {
-    let sin = radians.sin();
-    let cos = radians.cos();
-
-    let tx = value.x;
-    let ty = value.y;
-
-    value.x = (cos * tx) - (sin * ty);
-    value.y = (sin * tx) + (cos * ty);
 }
