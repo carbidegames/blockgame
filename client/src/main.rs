@@ -171,9 +171,11 @@ impl EventHandler for MainState {
                             position.z as f32 + 0.2,
                         ) +
                         chunk_position;
+                    break
                 }
 
-                // TODO: Make sure we find the closest ray hit
+                // TODO: Make sure we find the closest ray hit, right now just the first chunk hit
+                // is used
             }
 
             // Calculate which direction we need to move based on the current input
@@ -274,9 +276,9 @@ fn cast_ray(
     // compare with 't'
     radius /= (direction.x*direction.x + direction.y*direction.y + direction.z*direction.z).sqrt();
 
-    while voxels.is_in_bounds(voxel) {
+    while is_in_bounds_step(step, voxels.size(), voxel) {
         // If it's solid, we're done
-        if *voxels.get(voxel).unwrap() {
+        if let Ok(true) = voxels.get(voxel) {
             return Some((voxel, normal))
         }
 
@@ -317,6 +319,13 @@ fn cast_ray(
     }
 
     None
+}
+
+fn is_in_bounds_step(step: Vector3<i32>, size: Vector3<i32>, voxel: Point3<i32>) -> bool {
+    let x = if step.x > 0 { voxel.x < size.x } else { voxel.x >= 0 };
+    let y = if step.y > 0 { voxel.y < size.y } else { voxel.y >= 0 };
+    let z = if step.z > 0 { voxel.z < size.z } else { voxel.z >= 0 };
+    x && y && z
 }
 
 fn signum(x: f32) -> i32 {
