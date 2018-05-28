@@ -152,12 +152,29 @@ impl EventHandler for MainState {
 
             // Check where in the world we're aiming at
             let camera_position = self.player_position + Vector3::new(0.0, 1.5, 0.0);
-            /*for chunk in &self.chunks {
-                // Offset the position for the ray trace
-            }*/
             let direction = self.camera.to_quaternion() * Vector3::new(0.0, 0.0, -1.0);
-            let position = camera_position + direction*5.0;
-            self.objects[self.pointer_object].position = position - Vector3::new(0.5, 0.5, 0.5);
+            for chunk in &self.chunks {
+                // Offset the position for the ray trace
+                let chunk_position = Vector3::new(
+                    chunk.position.x as f32, chunk.position.y as f32, chunk.position.z as f32
+                ) * 16.0;
+                let origin = camera_position - chunk_position;
+
+                // Cast the ray
+                let result = cast_ray(origin, direction, 10.0, &chunk.voxels);
+                if let Some((position, _normal)) = result {
+                    self.objects[self.pointer_object].position =
+                        Point3::new(
+                            // A little bit added so we can see it
+                            position.x as f32 + 0.2,
+                            position.y as f32 + 0.2,
+                            position.z as f32 + 0.2,
+                        ) +
+                        chunk_position;
+                }
+
+                // TODO: Make sure we find the closest ray hit
+            }
 
             // Calculate which direction we need to move based on the current input
             let mut input = self.input.to_vector();
@@ -222,7 +239,7 @@ impl EventHandler for MainState {
 }
 
 fn cast_ray(
-    origin: Vector3<f32>, direction: Vector3<f32>, mut radius: f32, voxels: &Voxels<bool>,
+    origin: Point3<f32>, direction: Vector3<f32>, mut radius: f32, voxels: &Voxels<bool>,
 ) -> Option<(Point3<i32>, Vector3<f32>)> {
     // Cube containing origin point
     let mut voxel = Point3::new(
