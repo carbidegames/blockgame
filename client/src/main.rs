@@ -43,6 +43,7 @@ struct MainState {
 
     chunks: Vec<Chunk>,
     objects: Vec<Object>,
+    pointer_object: usize,
     camera: PitchYawCamera,
     player_position: Point3<f32>,
 }
@@ -114,6 +115,13 @@ impl MainState {
             }
         }
 
+        // Create the object we'll use to show where the player is pointing
+        objects.push(Object {
+            position: Point3::new(0.0, 0.0, 0.0),
+            mesh: Mesh::cube(ctx),
+        });
+        let pointer_object = objects.len() - 1;
+
         let player_position = Point3::new(0.0, 40.0, 0.0);
         let camera = PitchYawCamera::new(0.0, 0.0);
 
@@ -127,6 +135,7 @@ impl MainState {
 
             chunks,
             objects,
+            pointer_object,
             player_position,
             camera,
         })
@@ -141,9 +150,18 @@ impl EventHandler for MainState {
         while timer::check_update_time(ctx, DESIRED_FPS) {
             self.connection.update(&self.log, &mut self.player_position);
 
+            // Check where in the world we're aiming at
+            let camera_position = self.player_position + Vector3::new(0.0, 1.5, 0.0);
+            /*for chunk in &self.chunks {
+                // Offset the position for the ray trace
+            }*/
+            let direction = self.camera.to_quaternion() * Vector3::new(0.0, 0.0, -1.0);
+            let position = camera_position + direction*5.0;
+            self.objects[self.pointer_object].position = position - Vector3::new(0.5, 0.5, 0.5);
+
             // Calculate which direction we need to move based on the current input
             let mut input = self.input.to_vector();
-            rotate_vector(&mut input, -self.camera.yaw);
+            input = rotate_vector(input, -self.camera.yaw);
 
             // Send that over to the server
             self.connection.send_input(input);
@@ -201,4 +219,113 @@ impl EventHandler for MainState {
 
         false
     }
+}
+
+fn cast_ray(
+    origin: Vector3<f32>, direction: Vector3<f32>, mut radius: f32, voxels: &Voxels<bool>,
+) -> Option<(Point3<i32>, Vector3<f32>)> {
+    // Cube containing origin point
+    let mut voxel = Point3::new(
+        origin.x.floor() as i32, origin.y.floor() as i32, origin.z.floor() as i32
+    );
+
+    // Direction to increment x,y,z when stepping
+    let step = Vector3::new(signum(direction.x), signum(direction.y), signum(direction.z));
+
+    // T when reaching the next voxel on an axis
+    let mut t_max = Vector3::new(
+        intbound(origin.x, direction.x),
+        intbound(origin.y, direction.y),
+        intbound(origin.z, direction.z),
+    );
+
+    // The change in t when taking a step (always positive)
+    let t_delta = Vector3::new(
+        step.x as f32 / direction.x,
+        step.y as f32 / direction.y,
+        step.z as f32 / direction.z,
+    );
+
+    let mut normal = Vector3::new(0.0, 0.0, 0.0);
+
+    // Avoids an infinite loop.
+    if direction.x == 0.0 && direction.y == 0.0 && direction.z == 0.0 {
+        panic!("Raycast in zero direction!")
+    }
+
+    // Rescale from units of 1 cube-edge to units of 'direction' so we can
+    // compare with 't'
+    radius /= (direction.x*direction.x + direction.y*direction.y + direction.z*direction.z).sqrt();
+
+    while voxels.is_in_bounds(voxel) {
+        // If it's solid, we're done
+        if *voxels.get(voxel).unwrap() {
+            return Some((voxel, normal))
+        }
+
+        // t_max.x stores the t-value at which we cross a cube boundary along the
+        // X axis, and similarly for Y and Z. Therefore, choosing the least t_max
+        // chooses the closest cube boundary. Only the first case of the four
+        // has been commented in detail.
+        if t_max.x < t_max.y {
+            if t_max.x < t_max.z {
+                if t_max.x > radius { break }
+                // Update which cube we are now in.
+                voxel.x += step.x;
+                // Adjust t_max.x to the next X-oriented boundary crossing.
+                t_max.x += t_delta.x;
+                // Record the normal vector of the cube face we entered.
+                normal = Vector3::new(-step.x as f32, 0.0, 0.0);
+            } else {
+                if t_max.z > radius { break }
+                voxel.z += step.z;
+                t_max.z += t_delta.z;
+                normal = Vector3::new(0.0, 0.0, -step.z as f32);
+            }
+        } else {
+            if t_max.y < t_max.z {
+                if t_max.y > radius { break }
+                voxel.y += step.y;
+                t_max.y += t_delta.y;
+                normal = Vector3::new(0.0, -step.y as f32, 0.0);
+            } else {
+                // Identical to the second case, repeated for simplicity in
+                // the conditionals.
+                if t_max.z > radius { break }
+                voxel.z += step.z;
+                t_max.z += t_delta.z;
+                normal = Vector3::new(0.0, 0.0, -step.z as f32);
+            }
+        }
+    }
+
+    None
+}
+
+fn signum(x: f32) -> i32 {
+    if x > 0.0 {
+        1
+    } else {
+        if x < 0.0 {
+            -1
+        } else {
+            0
+        }
+    }
+}
+
+fn intbound(mut s: f32, ds: f32) -> f32 {
+    // Find the smallest positive t such that s+t*ds is an integer
+    if ds < 0.0 {
+        intbound(-s, -ds)
+    } else {
+        s = modulus(s, 1.0);
+        // problem is now s+t*ds = 1
+        (1.0 - s) / ds
+    }
+}
+
+fn modulus(value: f32, modulus: f32) -> f32 {
+    // This is different but I'm not sure in what way
+    (value % modulus + modulus) % modulus
 }
