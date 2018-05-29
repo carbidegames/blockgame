@@ -23,7 +23,7 @@ use {
 
     lagato::{camera::{PitchYawCamera}, grid::{Voxels, Range}, DirectionalInput, rotate_vector},
     blockengine::{Chunk},
-    blockengine_rendering::{Renderer, Mesh, Object, triangulate_voxels},
+    blockengine_rendering::{Renderer, Texture, Mesh, Object, triangulate_voxels},
 
     networking::{Connection},
 };
@@ -54,7 +54,8 @@ impl MainState {
 
         mouse::set_relative_mode(ctx, true);
 
-        let renderer = Renderer::new(ctx);
+        let block_texture = Texture::load(ctx, "/dirt.png")?;
+        let renderer = Renderer::new(ctx, &block_texture);
         let input = DirectionalInput::new();
 
         // Create and generate world
