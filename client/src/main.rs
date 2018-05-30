@@ -155,7 +155,7 @@ impl EventHandler for MainState {
 
             // Check where in the world we're aiming at
             let camera_position = self.player_position + Vector3::new(0.0, 1.5, 0.0);
-            let direction = self.camera.to_quaternion() * Vector3::new(0.0, 0.0, -1.0);
+            let direction = self.camera.to_rotation() * Vector3::new(0.0, 0.0, -1.0);
             let mut found = Point3::new(0.0, 0.0, 0.0);
             let mut found_distance_sqr = 100.0*100.0;
             for chunk in &self.chunks {
