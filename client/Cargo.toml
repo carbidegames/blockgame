@@ -5,6 +5,7 @@ authors = ["Layl <LaylConway@users.noreply.github.com>"]
 
 [dependencies]
 ggez = "0.4"
+alga = "0.5"
 nalgebra = { version = "0.14", features = ["serde-serialize"] }
 slog = "2"
 noise = "0.5"
